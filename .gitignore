@@ -1,8 +1,9 @@
 # Default ignored files
 /shelf/
 /workspace.xml
-./.idea
-./img
-./.Material
-./__MACOSX
-./venvi
+/.idea
+/img
+/Material
+/__MACOSX
+/venvi/
+\venv
