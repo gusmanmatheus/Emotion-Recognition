@@ -38,52 +38,65 @@ cinza = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
 cv2.imshow("cinza", cinza)
 
 # x sera o primeiro sera o valor de X, o segundo valor de Y, o 3 'e o fim de x e 4 fim de y
-cinzaShape = cinza.shape
-faceInitX = face[0][1]
-faceInitY = face[0][0]
-faceFinishX = face[0][2]
-faceFinishY = face[0][3]
+##usamos for para mais de uma face
+for (x, y, w, h) in face:
+    cinzaShape = cinza.shape
+    # faceInitX = face[x][x]
+    # faceInitY = face[y][y]
+    # faceFinishX = face[x][w]
+    # faceFinishY = face[y][h]
 
-# aqui falo pra pegar inicial a inicial ate o final ...
-print(faceInitX, ":", faceInitX, '+', faceFinishX, faceInitY, ":", faceInitY, faceFinishY)
-cinzaRoi = cinza[faceInitX:faceInitX + faceFinishX, faceInitY:faceInitY + faceFinishY]
-cv2.imshow("cinzaRoi", cinzaRoi)
+    # aqui falo pra pegar inicial a inicial ate o final ...
+    # print(faceInitX, ":", faceInitX, '+', faceFinishX, faceInitY, ":", faceInitY, faceFinishY)
+    cinzaRoi = cinza[y:y + h, x:x + w]
+    cv2.imshow("cinzaRoi", cinzaRoi)
 
-# proximo passo 'e diminuir o tamanho da imagem para que podemos usala com treinamento mais rapido
+    # proximo passo 'e diminuir o tamanho da imagem para que podemos usala com treinamento mais rapido
 
-cinzaRoi = cv2.resize(cinzaRoi, (48, 48))
-cv2.imshow("cinzaRoiCut", cinzaRoi)
+    cinzaRoi = cv2.resize(cinzaRoi, (48, 48))
+    cv2.imshow("cinzaRoiCut", cinzaRoi)
 
-## depois precisamos coverter o roi de inteiro, para float, para facilitar o treinamento
-cinzaRoi = cinzaRoi.astype("float")
-# e agora diminuiremos os valores dividindo por 255 que 'e o valor max
-cinzaRoi = cinzaRoi / 255
-print(cinzaRoi)
+    ## depois precisamos coverter o roi de inteiro, para float, para facilitar o treinamento
+    cinzaRoi = cinzaRoi.astype("float")
+    # e agora diminuiremos os valores dividindo por 255 que 'e o valor max
+    cinzaRoi = cinzaRoi / 255
+    print(cinzaRoi)
 
-# passamos agora imagem para matriz... vemos que teremos 3 dimensoes...
-# essas dimensoes tem que dar 48 48 e 1... pois decidimos o tam dela de 48z e y .z = que temos 1 cor
-cinzaRoi = img_to_array(cinzaRoi)
-print(cinzaRoi)
-print(cinzaRoi.shape)
+    # passamos agora imagem para matriz... vemos que teremos 3 dimensoes...
+    # essas dimensoes tem que dar 48 48 e 1... pois decidimos o tam dela de 48z e y .z = que temos 1 cor
+    cinzaRoi = img_to_array(cinzaRoi)
+    print(cinzaRoi)
+    print(cinzaRoi.shape)
 
-# agora pedimos ao np que expanda as dimens da matriz,e adicionara mais uma dimencao, que sera referente a quantas imagem temos
-cinzaRoi = np.expand_dims(cinzaRoi, axis=0)
-print(cinzaRoi.shape)
+    # agora pedimos ao np que expanda as dimens da matriz,e adicionara mais uma dimencao, que sera referente a quantas imagem temos
+    cinzaRoi = np.expand_dims(cinzaRoi, axis=0)
+    print(cinzaRoi.shape)
 
-##aqui ele calcula as probabilidades
-preds = classificador.predict(cinzaRoi)[0]
-print(preds)
+    ##aqui ele calcula as probabilidades
+    preds = classificador.predict(cinzaRoi)[0]
+    print(preds)
 
-## retorna maior taxa
-emotion_probability = np.max(preds)
-print(emotion_probability)
-##maior valor das previsoes
-print(preds.argmax())
-# buscando qual expressao do index retornado
-label = expressoes[preds.argmax()]
-print(label)
+    ## retorna maior taxa
+    emotion_probability = np.max(preds)
+    print(emotion_probability)
+    ##maior valor das previsoes
+    print(preds.argmax())
+    # buscando qual expressao do index retornado
+    label = expressoes[preds.argmax()]
+    print(label)
 
-cv2.rectangle(original, (faceInitY, faceInitX), (faceInitY + faceFinishY, faceInitX + faceFinishX), (0, 0, 255), 2)
-cv2.putText(original, label, (faceInitX, faceInitY - 10), cv2.QT_FONT_BLACK, 0.65, (0, 0, 255), 2, cv2.LINE_AA)
-cv2.imshow("original2",original)
+    cv2.rectangle(original, (x, y), (x + w, y + h), (0, 0, 255), 2)
+    cv2.putText(original, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+                (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.imshow("original2", original)
+    probabilidades = np.ones((200, 300, 3), dtype='uint8') * 255
+    cv2.imshow("original3", original)
+    if len(face == 1):
+        for (i, (emotion, prob)) in enumerate(zip(expressoes, preds)):
+            text = "{}: {:.2f}%".format(emotion, prob * 100)
+            w = int(prob * 300)
+            cv2.rectangle(probabilidades, (7, (i * 35) + 5), (w, (i * 35) + 35), (200, 250, 20), - 1)
+            cv2.putText(probabilidades, text, (10, (i * 35) + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0),1,
+                        cv2.LINE_AA)
+cv2.imshow("original3", probabilidades)
 cv2.waitKey(15000)
