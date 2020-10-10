@@ -27,6 +27,31 @@ def normalizar(x):
     return x
 
 
+#### plotando grafico do modelo e salvando
+def plota_historico_modelo(historico_modelo):
+    fig, axs = plt.subplot(1, 2, figsize=(15, 5))
+    axs[0].plot(range(1, historico_modelo.history['accuracy'] + 1), historico_modelo.history['accuracy'], 'r')
+    axs[0].plot(range(1, historico_modelo.history['val_accuracy'] + 1), historico_modelo.history['val_accuracy'], 'b')
+    axs[0].set_title("Acuracia do modelo")
+    axs[0].set_ylabel("Acuracia")
+    axs[0].set_xlabel("Epoch")
+    axs[0].set_xticks(np.arange(1, len(historico_modelo.history['accuracy'] + 1),
+                                len(historico_modelo.history['accuracy']) / 10))
+    axs[0].legend(['traning accuracy', 'validation accuracy'], loc='best')
+    # loss
+    axs[1].plot(range(1, historico_modelo.history['loss'] + 1), historico_modelo.history['loss'], 'r')
+    axs[1].plot(range(1, historico_modelo.history['val_loss'] + 1), historico_modelo.history['val_loss'], 'b')
+    axs[1].set_title("Acuracia do modelo")
+    axs[1].set_ylabel("Acuracia")
+    axs[1].set_xlabel("Epoch")
+    axs[1].set_xticks(np.arange(1, len(historico_modelo.history['accuracy'] + 1),
+                                len(historico_modelo.history['accuracy']) / 10))
+    axs[0].legend(['traning loss', 'validation loss'], loc='best')
+
+    fig.salve('historico_modelo_mod01.png')
+    plota_historico_modelo(history)
+
+
 #####
 # aqui pego o caminho do materiale extraio ele..
 path = "img/material.zip"
@@ -89,10 +114,16 @@ emocoes = pd.get_dummies(data['emotion']).values
 x_train, x_test, y_train, y_test = train_test_split(faces, emocoes, test_size=0.1, random_state=42)
 
 ##entao separamos alguns para treino.. algumas para testes, outra para validacao
-_, x_val, _, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=41)
+##aqui sobre escrevo xtrain e ytrain paraque nao use a mesmas imagens para treinar e validar ... se nao acaba
+# dando porcentagem mais alta que normal
+x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=41)
 print('img para treinamento', len(x_train))
 print('img para teste', len(x_test))
 print('img para validacao', len(x_val))
+
+# salvando em arquivo valroes base de dados de teste, para a matriz de confusao
+np.save('mod_xtest', x_test)
+np.save('mod_ytest', y_test)
 
 num_features = 64
 num_labels = 7  ##numeros de classes
@@ -184,3 +215,57 @@ model.add(Dropout(0.5))
 # e gerara uma porcentagem para cada uma emocao/classes
 model.add(Dense(num_labels, activation='softmax'))
 model.summary()
+
+# beta = taxa de caimento, ligado a taixa de aprendizado
+# epsilon evita erro de div por zero, entao evita erro
+# m
+model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-7),
+              metrics='accuracy')
+
+arquivo_modelo = 'modelo_01_expressoes2.h5'
+arquivo_modelo_json = 'modelo_01_expressoes2.json'
+# se lossnao for diminuindo(valor de error), no tempo de passiencia que 'e o patience, entao mudaremos   o factor,
+# mudando taxa a taxa de aprendizado
+lr_reducer = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=3, verbose=1)
+# se nao tiver melhorias em 8 epocas que 'e o tempo de paciencia.. ele para de treinarnbb
+early_stopper = EarlyStopping(monitor='val_loss', min_delta=0, patience=8, verbose=1, mode='auto')
+# checkpoint salva o melhor modelo e o salvebestonly sempre sobrescreve o melhor modelo
+checkpointer = ModelCheckpoint(arquivo_modelo, monitor='val_loss', verbose=1, save_best_only=True)
+
+# salvando as configs em um json
+model_json = model.to_json()
+with open(arquivo_modelo_json, 'w') as json_file:
+    json_file.write(model_json)
+
+##criando o  a historia de treinamento, com as configuracoes definidas
+history = model.fit(np.array(x_train),
+                    np.array(y_train),
+                    batch_size=batch_size,
+                    epochs=epochs,
+                    verbose=1,
+                    validation_data=(np.array(x_val), np.array(y_val)),
+                    shuffle=True,
+                    callbacks=[lr_reducer, early_stopper, checkpointer]
+                    )
+print(history.history)
+score = model.evaluate(np.array(x_test), np.array(y_test), batch_size)
+
+print("acuracia: " + str(score[1]))
+print("erro: " + str(score[0]))
+
+# true_y = []
+# pred_t = []
+# x = np.load("mod_xtest.npy")  # valores de pixel
+# y = np.load("mod_ytest.npy")  # resposta dos pixel
+#
+# json_file01 = open(arquivo_modelo_json, 'r')
+# loaded_model_json = json_file01.read()
+# json_file01.close()
+#
+# loaded_model = model_from_json(loaded_model_json)
+# loaded_model.load_weights(arquivo_modelo)
+#
+#
+# y_pred = loaded_model.predict(x)
+# y_pred = y_pred
+plota_historico_modelo(history)
