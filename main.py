@@ -20,7 +20,7 @@ cv2.imshow('img', img)
 # uso um arquivo de detecacao de face..., busco um modelo ja pronto,passo tipo de detector, expressoes que quero
 # detectar
 cascate_face = "Material/haarcascade_frontalface_default.xml"
-modelo = 'Material/modelo_01_expressoes.h5'
+modelo = 'modelo_01_expressoes1.h5'
 face_detection = cv2.CascadeClassifier(cascate_face)
 classificador = load_model(modelo, compile=False)
 expressoes = ["Raiva", "Nojo", "Medo", "Feliz", "Triste", "Surpreso", "Neutro"]
@@ -29,6 +29,7 @@ expressoes = ["Raiva", "Nojo", "Medo", "Feliz", "Triste", "Surpreso", "Neutro"]
 original = img.copy()
 
 # aqui estou tentando detectar onde esta a face, passando tamanho da imagem, e o tamanho min da face(se for menor ele nao ler)
+# dentro de faces temos as localizacoes de todas faces
 face = face_detection.detectMultiScale(original, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
 print(face)
 

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import zipfile
-import tensorflow
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten
@@ -14,13 +14,25 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import model_from_json
+import itertools
 
+# from keras.models import Sequential
+# from  keras.layers import Dense, Dropout, Activation, Flatten
+# from  keras.layers import Conv2D, MaxPool2D, BatchNormalization
+# from  keras.losses import categorical_crossentropy
+# from  keras.optimizers import Adam
+# from  keras.regularizers import l2
+# from  keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
+# from  keras.models import load_model
+# from keras.models import model_from_json
 
 ##########funcs
 
 # normalizando os dados 0 a 1
 # para otimizar
 # e fazer o treinamento mais rapido
+from sklearn.metrics import confusion_matrix
+
 def normalizar(x):
     x = x.astype('float32')
     x = x / 255.0
@@ -49,7 +61,7 @@ def plota_historico_modelo(historico_modelo):
     axs[0].legend(['traning loss', 'validation loss'], loc='best')
 
     fig.salve('historico_modelo_mod01.png')
-    plota_historico_modelo(history)
+    # plota_historico_modelo(history)
 
 
 #####
@@ -138,9 +150,8 @@ model = Sequential()
 # e usando funcao do relu para quando tiver partes pretas serao negativas, entao botamos 0 que 'e cinza ignorando
 # as sombras
 # para regulariazer o kernel regularize, aumenta a punicao ainda mais.
-model.add(
-    Conv2D(num_features, kernel_size=(3, 3), activation='relu', input_shape=(width, heigth, 1),
-           data_format='channels_last', kernel_regularizer=l2(0.01)))
+model.add(Conv2D(num_features, kernel_size=(3, 3), activation='relu', input_shape=(width, heigth, 1),
+                 data_format='channels_last', kernel_regularizer=l2(0.01)))
 
 ## segunda camada de convolucao, poderia padding valid ou same, optei pelo filtro do same, pois same mata a ultima parte
 # ex:
@@ -222,8 +233,8 @@ model.summary()
 model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-7),
               metrics='accuracy')
 
-arquivo_modelo = 'modelo_01_expressoes2.h5'
-arquivo_modelo_json = 'modelo_01_expressoes2.json'
+arquivo_modelo = 'modelo_01_expressoes1.h5'
+arquivo_modelo_json = 'modelo_01_expressoes1.json'
 # se lossnao for diminuindo(valor de error), no tempo de passiencia que 'e o patience, entao mudaremos   o factor,
 # mudando taxa a taxa de aprendizado
 lr_reducer = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=3, verbose=1)
@@ -236,6 +247,11 @@ checkpointer = ModelCheckpoint(arquivo_modelo, monitor='val_loss', verbose=1, sa
 model_json = model.to_json()
 with open(arquivo_modelo_json, 'w') as json_file:
     json_file.write(model_json)
+
+physical_device_GPU = tf.config.list_physical_devices('GPU')
+physical_device_CPU = tf.config.list_physical_devices('CPU')
+print("Num GPUs:", len(physical_device_GPU))
+print("Num CPUs:", len(physical_device_CPU))
 
 ##criando o  a historia de treinamento, com as configuracoes definidas
 history = model.fit(np.array(x_train),
@@ -253,19 +269,65 @@ score = model.evaluate(np.array(x_test), np.array(y_test), batch_size)
 print("acuracia: " + str(score[1]))
 print("erro: " + str(score[0]))
 
-# true_y = []
-# pred_t = []
-# x = np.load("mod_xtest.npy")  # valores de pixel
-# y = np.load("mod_ytest.npy")  # resposta dos pixel
-#
-# json_file01 = open(arquivo_modelo_json, 'r')
-# loaded_model_json = json_file01.read()
-# json_file01.close()
-#
-# loaded_model = model_from_json(loaded_model_json)
-# loaded_model.load_weights(arquivo_modelo)
-#
-#
-# y_pred = loaded_model.predict(x)
-# y_pred = y_pred
+# preparando pra matriz deconfusao
+true_y = []
+pred_y = []
+x = np.load("mod_xtest.npy")  # valores de pixel
+y = np.load("mod_ytest.npy")  # resposta dos pixel
+
+json_file01 = open(arquivo_modelo_json, 'r')
+loaded_model_json = json_file01.read()
+json_file01.close()
+
+# matriz de confusao
+loaded_model = model_from_json(loaded_model_json)
+loaded_model.load_weights(arquivo_modelo)
+
+y_pred = loaded_model.predict(x)
+
+yp = y_pred.tolist()
+yt = y.tolist()
+
+count = 0
+
+# fazendo calculo manual que ja foi feito no tensorflow, e depois faremos matriz de confusao
+for i in range(len(y)):
+    yy = max(yp[i])
+    yyt = max(yt[i])
+    pred_y.append(yp[i].index(yy))
+    true_y.append(yt[i].index(yyt))
+    if yp[i].index(yy) == yt[i].index(yyt):
+        count += 1
+
+acc = (count / len(y)) * 100
+print("acuracia no conjuto de teste" + str(acc))
+
+np.save("truey_mod01", true_y)
+np.save("predy_mod01", pred_y)
+
+y_true = np.load('truey_mod01.npy')
+y_pred = np.load('predy_mod01.npy')
+
+cm = confusion_matrix(y_true, y_pred)
+expressoes = ['Raiva', 'Nojo', 'Medo', 'Feliz', 'Triste', 'Surpreso', 'Neutro']
+titulo = 'Matriz de Confusao'
+
+print(cm)
+plt.imshow(cm, interpolation='nearest', cmap=plt.cm.get_cmap("Blues"))
+plt.title(titulo)
+plt.colorbar()
+tick_marks = np.arange(len((expressoes)))
+plt.xticks(tick_marks, expressoes, rotation=45);
+plt.yticks(tick_marks, expressoes);
+fmt = 'd'
+thresh = cm.max() / 2
+
+for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+    plt.text(j, i, format(cm[i, j], fmt), horizontalalignment='center', color='white' if cm[i, j] > thresh else 'black')
+
+plt.ylabel('Classificacao correta')
+plt.xlabel('Predicao')
+plt.savefig('matriz_confusao_mod01.png')
+
+# plotando historico do modelo
 plota_historico_modelo(history)
